@@ -4,6 +4,8 @@ Assumes the packets follow the Remote Receiver format
 Forwards the packets on the TX pin of the serial port, so you can pass the
 packets on the the flight control board
 """
+
+#Pre-amble import reqired packages
 import serial
 import time
 import sys
@@ -78,12 +80,45 @@ def parse_channel_data(data):
     #ch_data = 988 + (ch_data >> 1)
     return ch_id, ch_data
 
+""" Martin's
 def convert(positions, rawdata):
     newdata = rawdata
     newdata = rawdata[:2]
     for i in range(7):
 	newdata.append(translate(i,positions[i]))
     return newdata
+"""
+
+#Kiel's Attempt
+def TB(ch, pos): #TB for two byte
+	twobyte = ((ch << 10) | pos)
+	return twobyte
+
+#Set Channel Id's and gains,  using 1024 Mode
+#throttle has a cntrl input of 0-1 referring to 0-100% throttle up
+#the other ctrls use 0.5 as neutral and 0.5> as -ve and 0.5< as +ve
+thr_ch = 1, thr_range = 1024*0.7 #<<max throttle range is 70%
+ail_ch = 2, ail_range = (512)*0.5 #<<max allowed rang is 50% above or below
+ele_ch = 3, ele_range = (512)*0.5
+rud_ch = 4, rud_range = (512)*0.5
+aux1_ch = 5
+aux2_ch = 6
+
+#NEED to import and read a .csv file of commands
+#relating to all control inputs and a time stamp
+def ctrlIn(ch):
+	if ch == thr_ch: #throttle
+		pos = 0 + #thr_gain*thr_crtl
+	elif ch == ail_ch: #aileron
+		pos = 512 + #ail_gain*ail_crtl
+	elif ch == ele_ch: #elevator
+		pos = 512 + #ele_gain*ele_crtl
+	elif ch == rud_ch: #rudder
+		pos = 512 + #rud_gain*rud_crtl
+	return pos
+		
+		
+
 
 print("AUX1____Roll____Pitch____Yaw____AUX2____Throttle")
 ser = serial.Serial(
@@ -95,11 +130,16 @@ N_CHAN = 13
 data = None
 servo_position = [0 for i in range(N_CHAN)]
 #servo_chanel = [0 for i in range(N_CHAN)]
+
+"""
+#log inputs
 MyDateTime = datetime.datetime.now()
 date = MyDateTime.isoformat()
 date = date.translate(string.maketrans("",""),":.-")
 logfile = open("Reciever" + date + ".csv","w+")
 logfile.write("AUX1____Roll____Pitch____Yaw____AUX2____Throttle\n")
+"""
+
 try:
     align_serial(ser)
     while True:
@@ -113,15 +153,25 @@ try:
         sys.stdout.write(
             "%4d	%4d	%4d	%4d	%4d	%4d	%4d	%4d\r"%tuple(
             servo_position[:8]))
-	logfile.write("%4d, %4d, %4d, %4d, %4d, %4d\n"%tuple(
+	#logfile.write("%4d, %4d, %4d, %4d, %4d, %4d\n"%tuple(
             servo_position[:6]))
         sys.stdout.flush()
-	datawrite = convert(servo_position, data_buf)
+	
+	
+	
+	
+	#uses function convert, to convert incoming data
+	datawrite = [data_buf[0:1], data_buf[0:1], TB(ail_ch,ctrlIn(ail_ch)), TB(ele_ch,ctrlIn(ele_ch)), 
+		     TB(rud_ch,ctrlIn(rud_ch)), data_buf[0:1], TB(thr_ch,ctrlIn(thr_ch))]
+	#writes data for platform
         ser.write(datawrite)
+	
+	
+	
 except(KeyboardInterrupt, SystemExit):
     ser.close()
-    logfile.close()
+    #logfile.close()
 except(Exception) as ex:
     print ex
     ser.close()
-    logfile.close()
+    #logfile.close()
