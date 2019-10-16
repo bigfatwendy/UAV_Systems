@@ -12,6 +12,8 @@ import sys
 import datetime
 import string
 
+import ctypes as ct
+
 def align_serial(ser):
     """Aligns the serial stream with the incoming Spektrum packets
 
@@ -92,9 +94,11 @@ def convert(positions, rawdata):
 
 
 #Kiel's Attempt
-def TB(ch, pos): #TB for two byte
-	twobyte = (ch << 10) | pos
-	return twobyte
+def chpos2bytes(ch, pos): #TB for two byte
+	val = (ch << 10) | pos
+	return bytes([(val >> 8) & 0xff, val & 0xff]) 
+
+
 
 #Set Channel Id's and gains,  using 1024 Mode
 #throttle has a cntrl input of 0-1 referring to 0-100% throttle up
@@ -123,31 +127,6 @@ def ctrlIn(ch):
 		pos = 512 #+ rud_gain*rud_crtl
 	return pos
 		
-		
-mask_ch = 0b11111100 # 0x7800
-shift_ch = 2
-mask_pos = 0b00000011 # 0x07FF
-def covert2bytes(data,ch,pos):
-    """Parse a channel's 2 bytes of data in a remote receiver packet
-
-    Inputs
-    ------
-    data: 2 byte long string (currently only supporting Python 2)
-        Bytes within the remote receiver packet representing a channel's data
-
-    Outputs
-    -------
-    channel_id, channel_data
-
-    """
-    twobyte = (ch << 10) | pos
-    chr
-    #ch_id = (ord(data[0]) & MASK_CH_ID) >> SHIFT_CH_ID
-    #ch_data = (
-    #    ((ord(data[0]) & MASK_SERVO_POS_HIGH) << 8) | ord(data[1]))
-    #ch_data = 988 + (ch_data >> 1)
-    #return ch_id, ch_data
-    return twobyte, trial
 
 
 
@@ -160,7 +139,7 @@ ser = serial.Serial(
     stopbits=serial.STOPBITS_ONE)
 N_CHAN = 13
 data = None
-servo_position = [0 for i in range(N_CHAN)]
+servo_pos = [0 for i in range(N_CHAN)]
 #servo_chanel = [0 for i in range(N_CHAN)]
 
 """
@@ -178,35 +157,34 @@ try:
     align_serial(ser)
     while True:
         data_buf = ser.read(16)
+	
+	data = data_buf[2:]
+        for i in range(7):
+            ch_id, s_pos = parse_channel_data(data[2*i:2*i+2])
+            servo_pos[ch_id] = s_pos
+        sys.stdout.write(
+            "%4d	%4d	%4d	%4d	%4d	%4d	%4d	%4d\r"%tuple(
+            servo_pos[:8]))
+	sys.stdout.flush()
+	
+	datawrite = data_buf[:1] + chpos2bytes(aux1_ch, servo_pos[aux1_ch]) + 
+					chpos2bytes(ail_ch, servo_pos[ail_ch]) +
+					chpos2bytes(ele_ch, servo_pos[ele_ch) +
+					chpos2bytes(rud_ch, servo_pos[rud_ch]) +
+					chpos2bytes(aux2_ch, servo_pos[aux2_ch]) +
+				 	chpos2bytes(thr_ch, servo_pos[thr_ch])
+						
+	
 
+	"""
         #datawrite = data_buf[4:6]
         datawrite = TB(ail_ch,ctrlIn(ail_ch))
         sys.stdout.write("{}\r".format(chr(datawrite)))
         #sys.stdout.write("{}\r".format(ord(datawrite[0])))
         #sys.stdout.write("{}\r".format(ord(datawrite[1])))
-        sys.stdout.flush()
 
-
-        """
-        data = data_buf[2:]
-        for i in range(7):
-            ch_id, s_pos = parse_channel_data(data[2*i:2*i+2])
-	    #print("ch_id: " + str(ch_id) + " pos: " + str(s_pos))
-            servo_position[ch_id] = s_pos
-	   # servo_chanel[i] = ch_id
-        #sys.stdout.write(
-         #   "%4d	%4d	%4d	%4d	%4d	%4d	%4d	%4d\r"%tuple(
-        #    servo_position[:8]))
 	#logfile.write("%4d, %4d, %4d, %4d, %4d, %4d\n"%tuple(
             #servo_position[:6]))
-        """
-
-
-
-        
-        #datawrite
-
-
 
         #uses function convert, to convert incoming data
         #datawrite = [data_buf[:2], data_buf[2:4]] # TB(ail_ch,ctrlIn(ail_ch)) + TB(ele_ch,ctrlIn(ele_ch)) + TB(rud_ch,ctrlIn(rud_ch)) + data_buf[10:12] + TB(thr_ch,ctrlIn(thr_ch)) + data_buf[12:16]
@@ -214,10 +192,10 @@ try:
         #sys.stdout.write(
          #   "%4d	%4d	%4d	%4d	%4d	%4d	%4d	%4d\r"%tuple(
           #  datawrite[:8]))
-
+	"""
 
 	#writes data for platform
-        #ser.write(datawrite)
+        ser.write(datawrite)
 except(KeyboardInterrupt, SystemExit):
     ser.close()
     #logfile.close()
