@@ -96,7 +96,14 @@ def convert(positions, rawdata):
 #Kiel's Attempt
 def chpos2bytes(ch, pos): #TB for two byte
 	val = (ch << 10) | pos
-	return bytes([(val >> 8) & 0xff, val & 0xff]) 
+	#return bytes([(val >> 8) & 0xff, val & 0xff]) 
+	return (val).to_bytes(2, byteorder='big')
+
+#try character string
+def chpos2chr(ch, pos): #TB for two byte
+	val = (ch << 10) | pos
+	CHR = chr((val >> 8) & 0xff) + chr(val & 0xff)
+	return CHR
 
 
 
@@ -167,12 +174,12 @@ try:
             servo_pos[:8]))
 	sys.stdout.flush()
 	
-	datawrite = data_buf[:1] + chpos2bytes(aux1_ch, servo_pos[aux1_ch]) + 
-					chpos2bytes(ail_ch, servo_pos[ail_ch]) +
-					chpos2bytes(ele_ch, servo_pos[ele_ch) +
-					chpos2bytes(rud_ch, servo_pos[rud_ch]) +
-					chpos2bytes(aux2_ch, servo_pos[aux2_ch]) +
-				 	chpos2bytes(thr_ch, servo_pos[thr_ch])
+	datawrite = data_buf[:2] + chpos2chr(aux1_ch, servo_pos[aux1_ch]) +\
+					chpos2chr(ail_ch, servo_pos[ail_ch]) +\
+					chpos2chr(ele_ch, servo_pos[ele_ch) +\
+					chpos2chr(rud_ch, servo_pos[rud_ch]) +\
+					chpos2chr(aux2_ch, servo_pos[aux2_ch]) +\
+				 	chpos2chr(thr_ch, servo_pos[thr_ch])
 						
 	
 
